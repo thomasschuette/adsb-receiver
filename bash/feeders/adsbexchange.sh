@@ -255,9 +255,9 @@ while [[ -z $RECEIVER_NAME ]]; do
 done
 
 # Get the altitude of the receiver from the Google Maps API using the latitude and longitude assigned dump1090-mutability if it is installed.
-if [[ $(dpkg-query -W -f='${STATUS}' dump1090-mutability 2>/dev/null | grep -c "ok installed") -eq 1 ]]; then
-    RECEIVER_LATITUDE=`GetConfig "LAT" "/etc/default/dump1090-mutability"`
-    RECEIVER_LONGITUDE=`GetConfig "LON" "/etc/default/dump1090-mutability"`
+if [[ $(dpkg-query -W -f='${STATUS}' dump1090-fa 2>/dev/null | grep -c "ok installed") -eq 1 ]]; then
+    RECEIVER_LATITUDE=`GetConfig "LAT" "${RECEIVER_BASH_DIRECTORY}/coor"`
+    RECEIVER_LONGITUDE=`GetConfig "LON" "${RECEIVER_BASH_DIRECTORY}/coor"`
 fi
 
 # Ask the user for the receivers altitude. (This will be prepopulated by the altitude returned from the Google Maps API.

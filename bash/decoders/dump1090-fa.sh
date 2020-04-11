@@ -48,7 +48,9 @@ source ${RECEIVER_BASH_DIRECTORY}/functions.sh
 if [[ "${RECEIVER_AUTOMATED_INSTALL}" = "true" ]] && [[ -s "${RECEIVER_CONFIGURATION_FILE}" ]] ; then
     source ${RECEIVER_CONFIGURATION_FILE}
 else
-    DUMP1090_BING_MAPS_KEY=`GetConfig "BingMapsAPIKey" "/usr/share/dump1090-mutability/html/config.js"`
+    RECEIVER_LATITUDE=`GetConfig "LAT" "/etc/default/dump1090-fa"`
+    RECEIVER_LONGITUDE=`GetConfig "LON" "/etc/default/dump1090-fa"`
+    DUMP1090_BING_MAPS_KEY=`GetConfig "BingMapsAPIKey" "/usr/share/dump1090-fa/html/config.js"`
 fi
 
 ### BEGIN SETUP
@@ -63,7 +65,7 @@ echo ""
 echo -e "\e[93m  ------------------------------------------------------------------------------\e[96m"
 echo ""
 if [[ "${RECEIVER_AUTOMATED_INSTALL}" = "false" ]] ; then
-    whiptail --backtitle "${RECEIVER_PROJECT_TITLE}" --title "Dump1090-fa Setup" --yesno "Dump 1090 is a Mode-S decoder specifically designed for RTL-SDR devices. Dump1090-fa is a fork of the dump1090-mutability version of dump1090 that is specifically designed for FlightAware's PiAware software.\n\nIn order to use this version of dump1090 FlightAware's PiAware software must be installed as well.\n\n  https://github.com/flightaware/dump1090\n\nContinue setup by installing dump1090-fa?" 14 78
+    whiptail --backtitle "${RECEIVER_PROJECT_TITLE}" --title "Dump1090-fa Setup" --yesno "Dump 1090 is a Mode-S decoder specifically designed for RTL-SDR devices. Dump1090-fa is a fork of the dump1090-fa version of dump1090 that is specifically designed for FlightAware's PiAware software.\n\nIn order to use this version of dump1090 FlightAware's PiAware software must be installed as well.\n\n  https://github.com/flightaware/dump1090\n\nContinue setup by installing dump1090-fa?" 14 78
     if [[ $? -eq 1 ]] ; then
         # Setup has been halted by the user.
         echo -e "\e[91m  \e[5mINSTALLATION HALTED!\e[25m"
@@ -163,12 +165,67 @@ if [[ ! -d "${RECEIVER_BUILD_DIRECTORY}/package-archive" ]] ; then
 fi
 
 # Archive binary package.
-echo -e "\e[94m  Moving the dump1090-mutability binary package into the archive directory...\e[97m"
+echo -e "\e[94m  Moving the dump1090-fa binary package into the archive directory...\e[97m"
 echo ""
 cp -vf ${RECEIVER_BUILD_DIRECTORY}/dump1090-fa/*.deb ${RECEIVER_BUILD_DIRECTORY}/package-archive/ 2>&1
 
 
 ## DUMP1090-FA POST INSTALLATION CONFIGURATION
+
+# Confirm the receiver's latitude and longitude if it is not already set in the component configuration file.
+echo -e ""
+echo -e "\e[95m  Begining post installation configuration...\e[97m"
+echo -e ""
+touch ${RECEIVER_BASH_DIRECTORY}/coor
+
+# Ask for the receivers latitude and longitude.
+if [[ "${RECEIVER_AUTOMATED_INSTALL}" = "false" ]] ; then
+    # Explain to the user that the receiver's latitude and longitude is required.
+    RECEIVER_LATLON_DIALOG=$(whiptail --backtitle "${RECEIVER_PROJECT_TITLE}" --title "Receiver Latitude and Longitude" --msgbox "Your receivers latitude and longitude are required for distance calculations, you will now be asked to supply these values for your receiver.\n\nIf you do not have this information you can obtain it using the web based \"Geocode by Address\" utility hosted on another of the lead developers websites:\n\n  https://www.adsbreceiver.net/tools/geocode.php" 15 78 3>&1 1>&2 2>&3)
+
+    # Ask the user for the receiver's latitude.
+    RECEIVER_LATITUDE_TITLE="Receiver Latitude"
+    RECEIVER_LATITUDE=$(whiptail --backtitle "${RECEIVER_PROJECT_TITLE}" --title "${RECEIVER_LATITUDE_TITLE}" --nocancel --inputbox "\nEnter your receiver's latitude.\n(Example: XX.XXXXXXX)" 9 78 -- "${RECEIVER_LATITUDE}" 3>&1 1>&2 2>&3)
+    while [[ -z "${RECEIVER_LATITUDE}" ]] || [[ `echo -n "${RECEIVER_LATITUDE}" | sed -e 's/[0-9]//g' -e 's/\.//g' -e 's/-//g' | wc -c` -gt 0 ]] ; do
+        RECEIVER_LATITUDE_TITLE="Receiver Latitude (REQUIRED)"
+        RECEIVER_LATITUDE=$(whiptail --backtitle "${RECEIVER_PROJECT_TITLE}" --title "${RECEIVER_LATITUDE_TITLE}" --nocancel --inputbox "\nEnter your receiver's latitude.\n(Example: XX.XXXXXXX)" 9 78 -- "${RECEIVER_LATITUDE}" 3>&1 1>&2 2>&3)
+    done
+
+    # Ask the user for the receiver's longitude.
+    RECEIVER_LONGITUDE_TITLE="Receiver Longitude"
+    RECEIVER_LONGITUDE=$(whiptail --backtitle "${RECEIVER_PROJECT_TITLE}" --title "${RECEIVER_LONGITUDE_TITLE}" --nocancel --inputbox "\nEnter your receeiver's longitude.\n(Example: XX.XXXXXXX)" 9 78 -- "${RECEIVER_LONGITUDE}" 3>&1 1>&2 2>&3)
+    while [[ -z "${RECEIVER_LONGITUDE}" ]] || [[ `echo -n "${RECEIVER_LONGITUDE}" | sed -e 's/[0-9]//g' -e 's/\.//g' -e 's/-//g' | wc -c` -gt 0 ]] ; do
+        RECEIVER_LONGITUDE_TITLE="Receiver Longitude (REQUIRED)"
+        RECEIVER_LONGITUDE=$(whiptail --backtitle "${RECEIVER_PROJECT_TITLE}" --title "${RECEIVER_LONGITUDE_TITLE}" --nocancel --inputbox "\nEnter your receeiver's longitude.\n(Example: XX.XXXXXXX)" 9 78 -- "${RECEIVER_LONGITUDE}" 3>&1 1>&2 2>&3)
+    done
+fi
+
+# Save the receiver's latitude and longitude values to dump1090 configuration file.
+RECEIVER_LATITUDE_CONFIGURED=`GetConfig "LAT" "${RECEIVER_BASH_DIRECTORY}/coor"`
+if [[ ! "${RECEIVER_LATITUDE}" = "${RECEIVER_LATITUDE_CONFIGURED}" ]] ; then
+    echo -e "\e[94m  Setting the receiver's latitude to ${RECEIVER_LATITUDE}...\e[97m"
+    echo "LAT=" >> ${RECEIVER_BASH_DIRECTORY}/coor
+    ChangeConfig "LAT" "${RECEIVER_LATITUDE}" "${RECEIVER_BASH_DIRECTORY}/coor"
+fi
+RECEIVER_LONGITUDE_CONFIGURED=`GetConfig "LON" "${RECEIVER_BASH_DIRECTORY}/coor"`
+if [[ ! "${RECEIVER_LONGITUDE}" = "${RECEIVER_LONGITUDE_CONFIGURED}" ]] ; then
+    echo -e "\e[94m  Setting the receiver's longitude to ${RECEIVER_LONGITUDE}...\e[97m"
+    echo "LON=" >> ${RECEIVER_BASH_DIRECTORY}/coor
+    ChangeConfig "LON" "${RECEIVER_LONGITUDE}" "${RECEIVER_BASH_DIRECTORY}/coor"
+fi
+
+# Save the receiver's latitude and longitude values to the dump1090-fa config.js file.
+JS_LATITUDE_CONFIGURED=`GetConfig "DefaultCenterLat" "/usr/share/dump1090-fa/html/config.js"`
+if [[ ! "${RECEIVER_LATITUDE}" = "${JS_LATITUDE_CONFIGURED}" ]] ; then
+    echo -e "\e[94m  Setting the receiver's latitude in config.js to ${RECEIVER_LATITUDE}...\e[97m"
+    ChangeConfig "DefaultCenterLat" "${RECEIVER_LATITUDE}" "/usr/share/dump1090-fa/html/config.js"
+fi
+if [[ ! "${RECEIVER_LONGITUDE}" = "${JS_LONGITUDE_CONFIGURED}" ]] ; then
+JS_LONGITUDE_CONFIGURED=`GetConfig "DefaultCenterLon" "/usr/share/dump1090-fa/html/config.js"`
+
+    echo -e "\e[94m  Setting the receiver's longitude in config.js to ${RECEIVER_LONGITUDE}...\e[97m"
+    ChangeConfig "DefaultCenterLon" "${RECEIVER_LONGITUDE}" "/usr/share/dump1090-fa/html/config.js"
+fi
 
 # Ask for a Bing Maps API key.
 if [[ "${RECEIVER_AUTOMATED_INSTALL}" = "false" ]] ; then

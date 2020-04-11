@@ -107,6 +107,10 @@ CheckPackage tcllib
 CheckPackage tcl-tls
 CheckPackage itcl3
 CheckPackage net-tools
+CheckPackage libboost-system-dev
+CheckPackage libboost-program-options-dev
+CheckPackage libboost-regex-dev
+CheckPackage libboost-filesystem-dev
 
 ### STOP ANY RUNNING SERVICES
 
@@ -138,7 +142,58 @@ else
     git clone https://github.com/flightaware/piaware_builder.git 2>&1
 fi
 
+if [[ -d ${RECEIVER_BUILD_DIRECTORY}/tcltls-rebuild ]] && [[ -d ${RECEIVER_BUILD_DIRECTORY}/tcltls-rebuild/.git ]] ; then
+    # A directory with a git repository containing the source code already exists.
+    echo -e "\e[94m  Entering the tcltls-rebuild git repository directory...\e[97m"
+    cd ${RECEIVER_BUILD_DIRECTORY}/tcltls-rebuild 2>&1
+    echo -e "\e[94m  Updating the local tcltls-rebuild git repository...\e[97m"
+    echo ""
+    git pull 2>&1
+else
+    # A directory containing the source code does not exist in the build directory.
+    echo -e "\e[94m  Entering the ADS-B Receiver Project build directory...\e[97m"
+    cd ${RECEIVER_BUILD_DIRECTORY} 2>&1
+    echo -e "\e[94m  Cloning the piaware_builder git repository locally...\e[97m"
+    echo ""
+    git clone https://github.com/flightaware/tcltls-rebuild.git 2>&1
+fi
+
 ## BUILD AND INSTALL THE COMPONENT PACKAGE
+
+echo ""
+echo -e "\e[95m  Building and installing the tcltls-rebuild Package for the FlightAware PiAware client package...\e[97m"
+echo ""
+
+echo ""
+echo -e "\e[95m  Installing packages needed to fulfill dependencies for the tcltls-rebuild Package...\e[97m"
+echo ""
+
+CheckPackage libssl-dev
+CheckPackage tcl-dev
+CheckPackage chrpath
+
+# Change to the component build directory.
+if [[ ! ${PWD} = ${RECEIVER_BUILD_DIRECTORY}/tcltls-rebuild ]] ; then
+    echo -e "\e[94m  Entering the tcltls-rebuild git repository directory...\e[97m"
+    cd ${RECEIVER_BUILD_DIRECTORY}/tcltls-rebuild 2>&1
+fi
+
+    echo -e "\e[94m  Executing the tcltls-rebuild script...\e[97m"
+    echo ""
+    ./prepare-build.sh ${OS_RELEASE}
+    cd ${RECEIVER_BUILD_DIRECTORY}/tcltls-rebuild/package-buster 2>&1
+
+    # Build binary package.
+    echo -e "\e[94m  Building the tcltls-rebuild package...\e[97m"
+    echo ""
+    dpkg-buildpackage -b --no-sign 2>&1
+    echo ""
+
+    # Install binary package.
+    echo -e "\e[94m  Installing the tcltls-rebuild package...\e[97m"
+    echo ""
+    sudo dpkg -i ${RECEIVER_BUILD_DIRECTORY}/tcltls-rebuild/tcl-tls_*.deb 2>&1
+    echo ""
 
 echo ""
 echo -e "\e[95m  Building and installing the FlightAware PiAware client package...\e[97m"
@@ -155,12 +210,12 @@ if [[ -n "${CPU_ARCHITECTURE}" ]] ; then
     # Execute build script.
     echo -e "\e[94m  Executing the FlightAware PiAware client build script...\e[97m"
     echo ""
-    ./sensible-build.sh jessie
+    ./sensible-build.sh ${OS_RELEASE}
     echo ""
 
     # Change to build script directory.
     echo -e "\e[94m  Entering the FlightAware PiAware client build directory...\e[97m"
-    cd ${RECEIVER_BUILD_DIRECTORY}/piaware_builder/package-jessie 2>&1
+    cd ${RECEIVER_BUILD_DIRECTORY}/piaware_builder/package-${OS_RELEASE} 2>&1
 
     # Build binary package.
     echo -e "\e[94m  Building the FlightAware PiAware client package...\e[97m"
